@@ -6,9 +6,11 @@ const POSITIONS = [
     "bottom_left", "bottom_center", "bottom_right",
 ];
 
-// Arrow pointing AWAY from the selected anchor cell
+// Arrow pointing AWAY from the selected anchor.
+// Returns "" for cells that are not directly adjacent (more than 1 step away).
 function getArrow(fromRow, fromCol, selRow, selCol) {
     if (fromRow === selRow && fromCol === selCol) return "●";
+    if (Math.abs(fromRow - selRow) > 1 || Math.abs(fromCol - selCol) > 1) return "";
     const dr = fromRow - selRow;
     const dc = fromCol - selCol;
     if (dr < 0 && dc < 0) return "↖";
@@ -22,9 +24,14 @@ function getArrow(fromRow, fromCol, selRow, selCol) {
 }
 
 function buildAnchorGrid(anchorW) {
-    // Outer wrapper — centres the grid in the node
     const wrapper = document.createElement("div");
-    wrapper.style.cssText = "display:flex;justify-content:center;padding:6px 0;width:100%;box-sizing:border-box;";
+    wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;padding:6px 0 8px;width:100%;box-sizing:border-box;gap:4px;";
+
+    // Small label
+    const label = document.createElement("div");
+    label.textContent = "Anchor";
+    label.style.cssText = "font-size:11px;color:#aaa;letter-spacing:1px;text-transform:uppercase;";
+    wrapper.appendChild(label);
 
     // 3×3 CSS grid
     const grid = document.createElement("div");
@@ -103,8 +110,17 @@ app.registerExtension({
             const domW = node.addDOMWidget("anchor_grid", "ANCHOR_GRID", wrapper, {
                 serialize: false,
             });
-            // 3 rows × 36px + 2 gaps × 2px + 12px top/bottom padding
-            domW.computeSize = () => [3 * 36 + 2 * 2, 3 * 36 + 2 * 2 + 12];
+            domW.computeSize = () => [3 * 36 + 2 * 2, 3 * 36 + 2 * 2 + 30]; // grid + label
+
+            // Move the DOM widget to sit right after the hidden anchor STRING widget,
+            // so it appears above scale_method / fill_method etc.
+            // (Same technique as ComfyUI-SimpleFloatSlider)
+            const anchorIdx = node.widgets.findIndex(w => w.name === "anchor");
+            const domIdx    = node.widgets.indexOf(domW);
+            if (anchorIdx >= 0 && domIdx > anchorIdx + 1) {
+                node.widgets.splice(domIdx, 1);
+                node.widgets.splice(anchorIdx + 1, 0, domW);
+            }
 
             // Show / hide custom_color field
             const paddingColorW = node.widgets?.find(w => w.name === "padding_color");
