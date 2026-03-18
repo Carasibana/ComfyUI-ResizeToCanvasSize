@@ -23,7 +23,7 @@ function getArrow(fromRow, fromCol, selRow, selCol) {
 
 function buildAnchorGrid(getVal, setVal) {
     const wrapper = document.createElement("div");
-    wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;padding:6px 0 8px;width:100%;box-sizing:border-box;gap:4px;";
+    wrapper.style.cssText = "display:flex;flex-direction:column;align-items:center;padding:6px 0 18px;width:100%;box-sizing:border-box;gap:4px;";
 
     const label = document.createElement("div");
     label.textContent = "Anchor";
@@ -144,7 +144,7 @@ app.registerExtension({
                 getValue: () => node._anchorValue,
                 setValue: (v) => { node._anchorValue = v; anchorRefresh(); },
             });
-            anchorDomW.computeSize = () => [3 * 36 + 4, 3 * 36 + 4 + 30];
+            anchorDomW.computeSize = () => [3 * 36 + 4, 3 * 36 + 4 + 40];
 
             // Slot into the position the COMBO occupied.
             const anchorDomIdx = node.widgets.indexOf(anchorDomW);
