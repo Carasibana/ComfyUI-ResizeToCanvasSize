@@ -101,7 +101,6 @@ app.registerExtension({
             const anchorW = node.widgets?.find(w => w.name === "anchor");
             if (!anchorW) return;
             anchorW.computeSize = () => [0, -4];
-            if (anchorW.inputEl) anchorW.inputEl.style.display = "none";
 
             // Build the 9-button grid
             const { wrapper, refresh } = buildAnchorGrid(anchorW);
