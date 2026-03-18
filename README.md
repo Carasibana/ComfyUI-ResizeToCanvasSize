@@ -115,7 +115,6 @@ No additional Python packages are required beyond those already included with Co
 ComfyUI-ResizeToCanvasSize/
 ├── __init__.py          # Registers the node and web directory
 ├── nodes.py             # Python node logic
-└── web/
-    └── js/
-        └── anchor_widget.js   # Custom anchor grid UI widget
+└── js/
+    └── anchor_widget.js # Custom anchor grid UI widget
 ```
