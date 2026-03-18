@@ -31,7 +31,7 @@ class ResizeToCanvasSize:
                 "image":              ("IMAGE",),
                 "width":              ("INT",  {"default": 512, "min": 1, "max": 8192, "step": 1}),
                 "height":             ("INT",  {"default": 512, "min": 1, "max": 8192, "step": 1}),
-                "anchor":             ("STRING", {"default": "center"}),
+                "anchor":             ("STRING", {"default": "center", "multiline": False}),
                 "scale_method":       (["none", "shortest_edge", "longest_edge", "height", "width"],
                                        {"default": "shortest_edge"}),
                 "fill_method":        (["crop", "stretch"], {"default": "crop"}),
