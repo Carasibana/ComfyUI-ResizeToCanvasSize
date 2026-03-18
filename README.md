@@ -25,7 +25,7 @@ A ComfyUI custom node that resizes an image to an exact target canvas size with 
 | `scale_method` | Dropdown | How to scale the image before filling (see below) |
 | `fill_method` | Dropdown | `crop` or `stretch` |
 | `padding_fill` | Dropdown | How to fill any gaps (see below) |
-| `custom_color` | Colour picker | Only shown when `padding_fill` is `custom` |
+| `custom_color_hex` | Colour picker | Only shown when `padding_fill` is `custom` — accepts `#RRGGBB` or `#RRGGBBAA`; invalid values fall back to black |
 | `noise_seed` | INT | Seed for noise generation — only shown when `padding_fill` is `noise` |
 
 ---

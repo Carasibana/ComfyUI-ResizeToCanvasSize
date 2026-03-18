@@ -42,7 +42,7 @@ class ResizeToCanvasSize:
                 "fill_method":  (["crop", "stretch"], {"default": "crop"}),
                 "padding_fill": (["black", "white", "gray_50", "transparent", "custom", "noise"],
                                  {"default": "black"}),
-                "custom_color": ("STRING", {"default": "#000000"}),
+                "custom_color_hex": ("STRING", {"default": "#000000"}),
                 "noise_seed":   ("INT",    {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
             }
         }
@@ -58,7 +58,7 @@ class ResizeToCanvasSize:
     # ------------------------------------------------------------------
 
     def resize(self, image, width, height, anchor, scale_method, fill_method,
-               padding_fill, custom_color, noise_seed):
+               padding_fill, custom_color_hex, noise_seed):
         """Process every image in the batch."""
         results, masks = [], []
 
@@ -66,7 +66,7 @@ class ResizeToCanvasSize:
             img_t, mask_t = self._process_single(
                 image[i], width, height, anchor,
                 scale_method, fill_method,
-                padding_fill, custom_color, noise_seed,
+                padding_fill, custom_color_hex, noise_seed,
             )
             results.append(img_t)
             masks.append(mask_t)
@@ -79,7 +79,7 @@ class ResizeToCanvasSize:
 
     def _process_single(self, img_tensor, tgt_w, tgt_h, anchor,
                         scale_method, fill_method,
-                        padding_fill, custom_color, noise_seed):
+                        padding_fill, custom_color_hex, noise_seed):
         pil = self._tensor_to_pil(img_tensor)
         src_w, src_h = pil.size
 
@@ -102,11 +102,11 @@ class ResizeToCanvasSize:
         # fill_method == "crop"
         return self._crop_fill(
             scaled, sc_w, sc_h, tgt_w, tgt_h,
-            anchor, padding_fill, custom_color, noise_seed,
+            anchor, padding_fill, custom_color_hex, noise_seed,
         )
 
     def _crop_fill(self, scaled, sc_w, sc_h, tgt_w, tgt_h,
-                   anchor, padding_fill, custom_color, noise_seed):
+                   anchor, padding_fill, custom_color_hex, noise_seed):
         paste_x, paste_y = self._anchor_offset(anchor, sc_w, sc_h, tgt_w, tgt_h)
 
         if padding_fill == "noise":
@@ -115,7 +115,7 @@ class ResizeToCanvasSize:
             noise_arr[:, :, 3] = 255
             canvas = Image.fromarray(noise_arr, "RGBA")
         else:
-            pad_rgba = self._parse_color(padding_fill, custom_color)
+            pad_rgba = self._parse_color(padding_fill, custom_color_hex)
             canvas   = Image.new("RGBA", (tgt_w, tgt_h), pad_rgba)
 
         pad_mask = np.ones((tgt_h, tgt_w), dtype=np.float32)  # 1 = padding
@@ -164,7 +164,7 @@ class ResizeToCanvasSize:
         return x, y
 
     @staticmethod
-    def _parse_color(padding_fill, custom_color):
+    def _parse_color(padding_fill, custom_color_hex):
         """Return (R, G, B, A) 0-255."""
         presets = {
             "black":       (0,   0,   0,   255),
@@ -175,18 +175,20 @@ class ResizeToCanvasSize:
         if padding_fill in presets:
             return presets[padding_fill]
 
-        # custom hex (#RRGGBB or #RRGGBBAA)
-        h = custom_color.lstrip("#")
+        # custom hex: sanitize, strip whitespace and leading #, accept #RRGGBB or #RRGGBBAA.
+        # If the value is invalid (e.g. passed from a connected node), fall back to the
+        # picker default (black).
         try:
+            h = str(custom_color_hex).strip().lstrip("#").strip()
             if len(h) == 6:
                 r, g, b = (int(h[i:i+2], 16) for i in (0, 2, 4))
                 return (r, g, b, 255)
             if len(h) == 8:
                 r, g, b, a = (int(h[i:i+2], 16) for i in (0, 2, 4, 6))
                 return (r, g, b, a)
-        except ValueError:
+        except (ValueError, AttributeError, TypeError):
             pass
-        return (0, 0, 0, 255)  # fallback
+        return (0, 0, 0, 255)  # fallback — matches picker default
 
     @staticmethod
     def _tensor_to_pil(tensor):

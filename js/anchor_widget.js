@@ -101,13 +101,10 @@ function buildColorPicker(getVal, setVal) {
     return { wrapper, input };
 }
 
-// Grow the node to fit computed size but never shrink below current size.
-function growNode(node) {
-    const computed = node.computeSize();
-    node.setSize([
-        Math.max(node.size[0], computed[0]),
-        Math.max(node.size[1], computed[1]),
-    ]);
+// Resize the node: grow to fit computed size but never shrink below prevW/prevH.
+function resizeNode(node, prevW, prevH) {
+    const [cw, ch] = node.computeSize();
+    node.setSize([Math.max(prevW, cw), Math.max(prevH, ch)]);
 }
 
 // Show or hide a standard (non-DOM) widget.
@@ -157,9 +154,9 @@ app.registerExtension({
                 node.widgets.splice(anchorTarget, 0, anchorDomW);
             }
 
-            // ── Color picker (replaces custom_color STRING widget) ────────────
+            // ── Color picker (replaces custom_color_hex STRING widget) ───────
             // Find AFTER anchor manipulation so indices are current.
-            const customColorIdx  = node.widgets?.findIndex(w => w.name === "custom_color") ?? -1;
+            const customColorIdx  = node.widgets?.findIndex(w => w.name === "custom_color_hex") ?? -1;
             const initColor       = customColorIdx >= 0 ? (node.widgets[customColorIdx].value || "#000000") : "#000000";
             if (customColorIdx >= 0) node.widgets.splice(customColorIdx, 1);
             node._customColorValue = initColor;
@@ -169,7 +166,7 @@ app.registerExtension({
                 (v) => { node._customColorValue = v; },
             );
 
-            const colorDomW = node.addDOMWidget("custom_color", "COLOR_PICKER", colorWrapper, {
+            const colorDomW = node.addDOMWidget("custom_color_hex", "COLOR_PICKER", colorWrapper, {
                 getValue: () => node._customColorValue,
                 setValue: (v) => { node._customColorValue = v; colorInput.value = v; },
             });
@@ -193,6 +190,10 @@ app.registerExtension({
             const noiseCtrlW   = (maybeCtrlW && maybeCtrlW.name !== "custom_color") ? maybeCtrlW : null;
 
             const sync = () => {
+                // Capture size BEFORE any changes so we never shrink a user-resized node.
+                const prevW = node.size[0];
+                const prevH = node.size[1];
+
                 const val       = paddingFillW?.value;
                 const showColor = val === "custom";
                 const showNoise = val === "noise";
@@ -205,7 +206,7 @@ app.registerExtension({
                 setWidgetVisible(noiseSeedW, showNoise);
                 if (noiseCtrlW) setWidgetVisible(noiseCtrlW, showNoise);
 
-                growNode(node);
+                resizeNode(node, prevW, prevH);
                 node.setDirtyCanvas(true);
             };
 
@@ -215,7 +216,6 @@ app.registerExtension({
             }
 
             sync();
-            growNode(node);
         };
     },
 });
