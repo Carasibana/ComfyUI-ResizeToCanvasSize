@@ -180,7 +180,7 @@ Clone this repository into your ComfyUI `custom_nodes` folder:
 
 ```bash
 cd ComfyUI/custom_nodes
-git clone http://mcnabnas.local:3000/Carasibana/ComfyUI-ResizeToCanvasSize.git
+git clone <repo-url>
 ```
 
 Then restart ComfyUI.
