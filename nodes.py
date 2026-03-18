@@ -32,10 +32,14 @@ class ResizeToCanvasSize:
                 "width":              ("INT",  {"default": 512, "min": 1, "max": 8192, "step": 1}),
                 "height":             ("INT",  {"default": 512, "min": 1, "max": 8192, "step": 1}),
                 "anchor":             (ANCHOR_OPTIONS, {"default": "center"}),
-                "scale_method":       (["none", "shortest_edge", "longest_edge", "height", "width"],
-                                       {"default": "shortest_edge"}),
+                "scale_method":       ([
+                                           "None – use original size",
+                                           "Fit to Canvas short edge",
+                                           "Fit to Canvas long edge",
+                                           "Fit to Canvas height",
+                                           "Fit to Canvas width",
+                                       ], {"default": "Fit to Canvas short edge"}),
                 "fill_method":        (["crop", "stretch"], {"default": "crop"}),
-                "too_small_behavior": (["pad", "clamp", "error"], {"default": "pad"}),
                 "padding_color":      (["black", "white", "gray_50", "transparent", "custom"],
                                        {"default": "black"}),
                 "custom_color":       ("STRING", {"default": "#000000"}),
@@ -53,7 +57,7 @@ class ResizeToCanvasSize:
     # ------------------------------------------------------------------
 
     def resize(self, image, width, height, anchor, scale_method, fill_method,
-               too_small_behavior, padding_color, custom_color):
+               padding_color, custom_color):
         """Process every image in the batch."""
         results, masks = [], []
 
@@ -61,7 +65,7 @@ class ResizeToCanvasSize:
             img_t, mask_t = self._process_single(
                 image[i], width, height, anchor,
                 scale_method, fill_method,
-                too_small_behavior, padding_color, custom_color,
+                padding_color, custom_color,
             )
             results.append(img_t)
             masks.append(mask_t)
@@ -74,7 +78,7 @@ class ResizeToCanvasSize:
 
     def _process_single(self, img_tensor, tgt_w, tgt_h, anchor,
                         scale_method, fill_method,
-                        too_small_behavior, padding_color, custom_color):
+                        padding_color, custom_color):
         pil = self._tensor_to_pil(img_tensor)
         src_w, src_h = pil.size
 
@@ -97,30 +101,12 @@ class ResizeToCanvasSize:
         # fill_method == "crop"
         return self._crop_fill(
             scaled, sc_w, sc_h, tgt_w, tgt_h,
-            anchor, too_small_behavior, padding_color, custom_color,
+            anchor, padding_color, custom_color,
         )
 
     def _crop_fill(self, scaled, sc_w, sc_h, tgt_w, tgt_h,
-                   anchor, too_small_behavior, padding_color, custom_color):
-        is_too_small = sc_w < tgt_w or sc_h < tgt_h
-
-        if is_too_small and too_small_behavior == "error":
-            raise ValueError(
-                f"Scaled image ({sc_w}x{sc_h}) is smaller than the target "
-                f"canvas ({tgt_w}x{tgt_h}). Change scale_method or set "
-                f"too_small_behavior to 'pad' or 'clamp'."
-            )
-
-        # Where to paste the scaled image on the canvas
+                   anchor, padding_color, custom_color):
         paste_x, paste_y = self._anchor_offset(anchor, sc_w, sc_h, tgt_w, tgt_h)
-
-        if is_too_small and too_small_behavior == "clamp":
-            # Shift paste position so the image stays inside canvas bounds.
-            # This eliminates any gap on the anchor side by pinning the
-            # image edge to the canvas edge; the opposite side may still gap.
-            paste_x = max(0, min(paste_x, tgt_w - sc_w))
-            paste_y = max(0, min(paste_y, tgt_h - sc_h))
-
         pad_rgba = self._parse_color(padding_color, custom_color)
         canvas   = Image.new("RGBA", (tgt_w, tgt_h), pad_rgba)
         pad_mask = np.ones((tgt_h, tgt_w), dtype=np.float32)  # 1 = padding
@@ -152,11 +138,11 @@ class ResizeToCanvasSize:
 
     @staticmethod
     def _compute_scale(src_w, src_h, tgt_w, tgt_h, method):
-        if method == "none":          return 1.0
-        if method == "shortest_edge": return min(tgt_w, tgt_h) / min(src_w, src_h)
-        if method == "longest_edge":  return max(tgt_w, tgt_h) / max(src_w, src_h)
-        if method == "height":        return tgt_h / src_h
-        if method == "width":         return tgt_w / src_w
+        if method == "None – use original size":   return 1.0
+        if method == "Fit to Canvas short edge":   return min(tgt_w, tgt_h) / min(src_w, src_h)
+        if method == "Fit to Canvas long edge":    return max(tgt_w, tgt_h) / max(src_w, src_h)
+        if method == "Fit to Canvas height":       return tgt_h / src_h
+        if method == "Fit to Canvas width":        return tgt_w / src_w
         return 1.0
 
     @staticmethod

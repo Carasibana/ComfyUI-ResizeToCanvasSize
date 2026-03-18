@@ -9,7 +9,6 @@ A ComfyUI custom node that resizes an image to an exact target canvas size with 
 - **Photoshop-style anchor grid** — 3×3 button grid at the top of the node; click any cell to set the anchor point. The selected cell shows a dot, directly adjacent cells show arrows pointing away from the anchor, and non-adjacent cells are blank
 - **5 scale methods** — choose how the image is scaled before the final fit step
 - **2 fill methods** — crop (trim overflow, optionally pad gaps) or stretch (distort to fill)
-- **3 "too small" behaviours** — pad, clamp, or error when the scaled image doesn't cover the canvas
 - **5 padding colour options** — black, white, 50% gray, transparent, or a custom hex colour
 - **Outputs RGBA image + padding mask** — the `padding_mask` output is `1` where padding was added and `0` where original image pixels are, making it easy to pipe into an inpainting workflow
 
@@ -25,7 +24,6 @@ A ComfyUI custom node that resizes an image to an exact target canvas size with 
 | `anchor` | Anchor Grid | 3×3 click grid — sets the anchor point for crop/pad positioning |
 | `scale_method` | Dropdown | How to scale the image before filling (see below) |
 | `fill_method` | Dropdown | `crop` or `stretch` |
-| `too_small_behavior` | Dropdown | What to do when the scaled image is smaller than the canvas |
 | `padding_color` | Dropdown | Colour used to fill any gaps |
 | `custom_color` | STRING | Hex colour (`#RRGGBB` or `#RRGGBBAA`) — only used when `padding_color` is `custom` |
 
@@ -35,11 +33,11 @@ A ComfyUI custom node that resizes an image to an exact target canvas size with 
 
 | Method | Behaviour |
 |---|---|
-| `none` | No scaling — use the image at its original resolution |
-| `shortest_edge` | Scale so the image's shortest edge matches the target's shortest edge |
-| `longest_edge` | Scale so the image's longest edge matches the target's longest edge |
-| `height` | Scale to match the target height exactly |
-| `width` | Scale to match the target width exactly |
+| `None – use original size` | No scaling — use the image at its original resolution |
+| `Fit to Canvas short edge` | Scale so the image's shortest edge matches the canvas's shortest edge |
+| `Fit to Canvas long edge` | Scale so the image's longest edge matches the canvas's longest edge |
+| `Fit to Canvas height` | Scale to match the canvas height exactly |
+| `Fit to Canvas width` | Scale to match the canvas width exactly |
 
 After scaling, the image may be larger than the canvas (overflow → crop) or smaller (gap → pad/stretch).
 
@@ -51,18 +49,6 @@ After scaling, the image may be larger than the canvas (overflow → crop) or sm
 |---|---|
 | `crop` | Place the scaled image using the anchor position, trim any overflow, fill any gaps with the padding colour. Anchor determines which part of the image is kept. |
 | `stretch` | Distort/resize the scaled image to exactly fill the canvas. Anchor is not used. |
-
----
-
-## Too Small Behavior
-
-Only relevant when `fill_method` is `crop` and the scaled image is smaller than the canvas in at least one dimension.
-
-| Option | Behaviour |
-|---|---|
-| `pad` | Fill the gap with `padding_color`. The gap appears on the side(s) opposite to the anchor. |
-| `clamp` | Shift the image toward the canvas edge so no gap appears on the anchor side. Gap may remain on the opposite side and is filled with `padding_color`. |
-| `error` | Raise an exception and halt the workflow. Useful for catching unexpected aspect-ratio mismatches. |
 
 ---
 
@@ -78,16 +64,16 @@ Only relevant when `fill_method` is `crop` and the scaled image is smaller than 
 ## Common Recipes
 
 **Crop to square, keep the centre:**
-- `scale_method`: `shortest_edge` · `fill_method`: `crop` · `anchor`: center
+- `scale_method`: `Fit to Canvas short edge` · `fill_method`: `crop` · `anchor`: center
 
 **Letterbox / pillarbox (fit within canvas, pad the rest):**
-- `scale_method`: `longest_edge` · `fill_method`: `crop` · `padding_color`: black
+- `scale_method`: `Fit to Canvas long edge` · `fill_method`: `crop` · `padding_color`: black
 
 **Distort to fill (ignore aspect ratio):**
-- `scale_method`: `none` · `fill_method`: `stretch`
+- `scale_method`: `None – use original size` · `fill_method`: `stretch`
 
 **Cookie-cutter crop at original resolution:**
-- `scale_method`: `none` · `fill_method`: `crop` — canvas dimensions act as a crop window at the anchor position
+- `scale_method`: `None – use original size` · `fill_method`: `crop` — canvas dimensions act as a crop window at the anchor position
 
 **Inpaint the padded region:**
 - Connect `padding_mask` to a KSampler inpainting setup to fill padding areas with generated content
