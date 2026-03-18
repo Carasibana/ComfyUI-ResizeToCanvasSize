@@ -44,7 +44,12 @@ class ResizeToCanvasSize:
                                  {"default": "black"}),
                 "custom_color_hex": ("STRING", {"default": "#000000"}),
                 "noise_seed":   ("INT",    {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
-            }
+            },
+            "optional": {
+                # Connected value overrides the colour picker; must be #RRGGBB or #RRGGBBAA.
+                # Invalid values fall back to the picker value.
+                "custom_color_hex_input": ("STRING", {"forceInput": True}),
+            },
         }
 
     RETURN_TYPES  = ("IMAGE", "MASK")
@@ -58,15 +63,22 @@ class ResizeToCanvasSize:
     # ------------------------------------------------------------------
 
     def resize(self, image, width, height, anchor, scale_method, fill_method,
-               padding_fill, custom_color_hex, noise_seed):
+               padding_fill, custom_color_hex, noise_seed, custom_color_hex_input=None):
         """Process every image in the batch."""
+        # If a node is connected to custom_color_hex_input, validate and use it;
+        # fall back to the picker value on any invalid input.
+        if custom_color_hex_input is not None:
+            resolved_color = self._sanitize_hex(custom_color_hex_input, custom_color_hex)
+        else:
+            resolved_color = custom_color_hex
+
         results, masks = [], []
 
         for i in range(image.shape[0]):
             img_t, mask_t = self._process_single(
                 image[i], width, height, anchor,
                 scale_method, fill_method,
-                padding_fill, custom_color_hex, noise_seed,
+                padding_fill, resolved_color, noise_seed,
             )
             results.append(img_t)
             masks.append(mask_t)
@@ -164,6 +176,17 @@ class ResizeToCanvasSize:
         return x, y
 
     @staticmethod
+    def _sanitize_hex(value, fallback="#000000"):
+        """Validate a hex colour string; return value if valid, fallback otherwise."""
+        try:
+            h = str(value).strip().lstrip("#").strip()
+            if len(h) in (6, 8) and all(c in "0123456789abcdefABCDEF" for c in h):
+                return "#" + h
+        except (AttributeError, TypeError):
+            pass
+        return fallback
+
+    @staticmethod
     def _parse_color(padding_fill, custom_color_hex):
         """Return (R, G, B, A) 0-255."""
         presets = {
@@ -175,9 +198,7 @@ class ResizeToCanvasSize:
         if padding_fill in presets:
             return presets[padding_fill]
 
-        # custom hex: sanitize, strip whitespace and leading #, accept #RRGGBB or #RRGGBBAA.
-        # If the value is invalid (e.g. passed from a connected node), fall back to the
-        # picker default (black).
+        # custom_color_hex has already been sanitized and resolved upstream.
         try:
             h = str(custom_color_hex).strip().lstrip("#").strip()
             if len(h) == 6:
@@ -188,7 +209,7 @@ class ResizeToCanvasSize:
                 return (r, g, b, a)
         except (ValueError, AttributeError, TypeError):
             pass
-        return (0, 0, 0, 255)  # fallback — matches picker default
+        return (0, 0, 0, 255)
 
     @staticmethod
     def _tensor_to_pil(tensor):

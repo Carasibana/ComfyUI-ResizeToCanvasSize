@@ -187,7 +187,26 @@ app.registerExtension({
             // ComfyUI may auto-add a control widget immediately after noise_seed.
             const noiseSeedIdx = node.widgets?.findIndex(w => w.name === "noise_seed") ?? -1;
             const maybeCtrlW   = noiseSeedIdx >= 0 ? node.widgets[noiseSeedIdx + 1] : null;
-            const noiseCtrlW   = (maybeCtrlW && maybeCtrlW.name !== "custom_color") ? maybeCtrlW : null;
+            const noiseCtrlW   = (maybeCtrlW && maybeCtrlW.name !== "custom_color_hex") ? maybeCtrlW : null;
+
+            // Remove the custom_color_hex_input slot initially; sync() will add it when needed.
+            const removeColorSlot = () => {
+                const idx = node.inputs?.findIndex(i => i.name === "custom_color_hex_input") ?? -1;
+                if (idx >= 0) node.removeInput(idx);
+            };
+            removeColorSlot();
+
+            const isColorSlotConnected = () => {
+                const idx = node.inputs?.findIndex(i => i.name === "custom_color_hex_input") ?? -1;
+                return idx >= 0 && node.inputs[idx].link != null;
+            };
+
+            const syncPickerState = () => {
+                const connected = isColorSlotConnected();
+                colorInput.disabled = connected;
+                colorInput.style.opacity = connected ? "0.35" : "1";
+                colorInput.style.cursor  = connected ? "not-allowed" : "pointer";
+            };
 
             const sync = () => {
                 // Capture size BEFORE any changes so we never shrink a user-resized node.
@@ -198,9 +217,17 @@ app.registerExtension({
                 const showColor = val === "custom";
                 const showNoise = val === "noise";
 
-                // Color picker DOM widget
+                // Color picker DOM widget + connector slot
                 colorWrapper.style.display = showColor ? "" : "none";
                 colorDomW.computeSize = showColor ? () => [200, 36] : () => [0, -4];
+
+                const slotExists = node.inputs?.some(i => i.name === "custom_color_hex_input");
+                if (showColor && !slotExists) {
+                    node.addInput("custom_color_hex_input", "STRING");
+                } else if (!showColor && slotExists) {
+                    removeColorSlot();
+                }
+                syncPickerState();
 
                 // noise_seed (and optional auto-added control widget)
                 setWidgetVisible(noiseSeedW, showNoise);
@@ -214,6 +241,23 @@ app.registerExtension({
                 const origCb = paddingFillW.callback;
                 paddingFillW.callback = (...args) => { origCb?.apply(paddingFillW, args); sync(); };
             }
+
+            // Re-sync when the color slot is connected or disconnected.
+            const origOnConnectionsChange = nodeType.prototype.onConnectionsChange;
+            nodeType.prototype.onConnectionsChange = function (slotType, slotIdx, connected, link, ioSlot) {
+                origOnConnectionsChange?.apply(this, arguments);
+                if (slotType === LiteGraph.INPUT) {
+                    const slot = this.inputs?.[slotIdx];
+                    if (slot?.name === "custom_color_hex_input") syncPickerState();
+                }
+            };
+
+            // After a saved workflow restores widget values, re-run sync.
+            const origOnConfigure = nodeType.prototype.onConfigure;
+            nodeType.prototype.onConfigure = function (info) {
+                origOnConfigure?.apply(this, arguments);
+                sync();
+            };
 
             sync();
         };
