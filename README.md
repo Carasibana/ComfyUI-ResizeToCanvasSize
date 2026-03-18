@@ -166,7 +166,11 @@ After scaling, the image may be larger than the canvas (overflow → crop) or sm
 - Set `anchor_mode`: `mask_bbox_centre` · grid: `(3,3)` (canvas centre)
 - Set `scale_method`: `Fit to Canvas width` — the detected face will be centred on the canvas regardless of where it appears in the source image
 
-![Face-centred portrait crop workflow using COI node with face detection](screenshots/workflow_coi_face_detection.png)
+![Face-centred portrait crop — single subject, mask_bbox_centre](screenshots/workflow_coi_face_detection.png)
+
+With multiple subjects, `mask_weighted_centre` finds the centre of gravity across all detected regions, automatically framing everyone together:
+
+![Two-subject crop — both faces detected, mask_weighted_centre centres between them](screenshots/workflow_coi_two_faces_weighted_centre.png)
 
 ---
 
