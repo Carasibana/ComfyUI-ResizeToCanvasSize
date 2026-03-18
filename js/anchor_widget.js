@@ -86,8 +86,8 @@ function buildColorPicker(getVal, setVal) {
     wrapper.style.cssText = "display:flex;align-items:center;gap:8px;padding:4px 12px;width:100%;box-sizing:border-box;height:32px;";
 
     const label = document.createElement("span");
-    label.textContent = "Custom color";
-    label.style.cssText = "font-size:12px;color:#ccc;flex:1;";
+    label.textContent = "Custom colour";
+    label.style.cssText = "font-size:12px;color:#ccc;flex:1;line-height:24px;padding-right:8px;";
 
     const input = document.createElement("input");
     input.type = "color";
