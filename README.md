@@ -6,7 +6,7 @@ A ComfyUI custom node that resizes an image to an exact target canvas size with 
 
 ## Features
 
-- **Photoshop-style anchor grid** — click any of the 9 positions to set where the image is anchored during crop or padding operations
+- **Photoshop-style anchor grid** — 3×3 button grid at the top of the node; click any cell to set the anchor point. The selected cell shows a dot, directly adjacent cells show arrows pointing away from the anchor, and non-adjacent cells are blank
 - **5 scale methods** — choose how the image is scaled before the final fit step
 - **2 fill methods** — crop (trim overflow, optionally pad gaps) or stretch (distort to fill)
 - **3 "too small" behaviours** — pad, clamp, or error when the scaled image doesn't cover the canvas
