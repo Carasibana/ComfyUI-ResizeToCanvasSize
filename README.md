@@ -15,6 +15,8 @@ A ComfyUI custom node pack that resizes images to an exact target canvas size wi
 
 ## Resize To Canvas Size
 
+![Resize To Canvas Size node](screenshots/node_resize_to_canvas_size.png)
+
 ### Features
 
 - **Photoshop-style anchor grid** — 3×3 button grid at the top of the node; click any cell to set the anchor point. The selected cell shows a dot, directly adjacent cells show arrows pointing away from the anchor, and non-adjacent cells are blank
@@ -38,6 +40,8 @@ A ComfyUI custom node pack that resizes images to an exact target canvas size wi
 | `custom_color_hex_input` | STRING (optional connector) | Only visible when `padding_fill` is `custom`. Connect any node that outputs a `#RRGGBB` / `#RRGGBBAA` string to override the colour picker. Invalid values fall back to the picker value. |
 | `noise_seed` | INT | Seed for noise generation — only shown when `padding_fill` is `noise` |
 
+![Custom colour fill with input connector](screenshots/node_custom_colour.png)
+
 ### Outputs
 
 | Output | Type | Description |
@@ -48,6 +52,10 @@ A ComfyUI custom node pack that resizes images to an exact target canvas size wi
 ---
 
 ## Resize To Canvas Size (COI)
+
+| Manual mode | Mask mode (`mask_weighted_centre`) |
+|---|---|
+| ![COI node — manual mode](screenshots/node_coi_manual_mode.png) | ![COI node — mask weighted centre mode](screenshots/node_coi_mask_mode.png) |
 
 Places the image on the canvas by first computing a **Centre of Interest** (COI) from an optional mask, then using a **7×7 target grid** to control exactly where that COI lands on the canvas.
 
