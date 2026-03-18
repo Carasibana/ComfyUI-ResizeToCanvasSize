@@ -28,21 +28,22 @@ class ResizeToCanvasSize:
     def INPUT_TYPES(cls):
         return {
             "required": {
-                "image":              ("IMAGE",),
-                "width":              ("INT",  {"default": 512, "min": 1, "max": 8192, "step": 1}),
-                "height":             ("INT",  {"default": 512, "min": 1, "max": 8192, "step": 1}),
-                "anchor":             (ANCHOR_OPTIONS, {"default": "center"}),
-                "scale_method":       ([
-                                           "None – use original size",
-                                           "Fit to Canvas short edge",
-                                           "Fit to Canvas long edge",
-                                           "Fit to Canvas height",
-                                           "Fit to Canvas width",
-                                       ], {"default": "Fit to Canvas short edge"}),
-                "fill_method":        (["crop", "stretch"], {"default": "crop"}),
-                "padding_color":      (["black", "white", "gray_50", "transparent", "custom"],
-                                       {"default": "black"}),
-                "custom_color":       ("STRING", {"default": "#000000"}),
+                "image":        ("IMAGE",),
+                "width":        ("INT",  {"default": 512, "min": 1, "max": 8192, "step": 1}),
+                "height":       ("INT",  {"default": 512, "min": 1, "max": 8192, "step": 1}),
+                "anchor":       (ANCHOR_OPTIONS, {"default": "center"}),
+                "scale_method": ([
+                                     "None – use original size",
+                                     "Fit to Canvas short edge",
+                                     "Fit to Canvas long edge",
+                                     "Fit to Canvas height",
+                                     "Fit to Canvas width",
+                                 ], {"default": "Fit to Canvas short edge"}),
+                "fill_method":  (["crop", "stretch"], {"default": "crop"}),
+                "padding_fill": (["black", "white", "gray_50", "transparent", "custom", "noise"],
+                                 {"default": "black"}),
+                "custom_color": ("STRING", {"default": "#000000"}),
+                "noise_seed":   ("INT",    {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
             }
         }
 
@@ -57,7 +58,7 @@ class ResizeToCanvasSize:
     # ------------------------------------------------------------------
 
     def resize(self, image, width, height, anchor, scale_method, fill_method,
-               padding_color, custom_color):
+               padding_fill, custom_color, noise_seed):
         """Process every image in the batch."""
         results, masks = [], []
 
@@ -65,7 +66,7 @@ class ResizeToCanvasSize:
             img_t, mask_t = self._process_single(
                 image[i], width, height, anchor,
                 scale_method, fill_method,
-                padding_color, custom_color,
+                padding_fill, custom_color, noise_seed,
             )
             results.append(img_t)
             masks.append(mask_t)
@@ -78,7 +79,7 @@ class ResizeToCanvasSize:
 
     def _process_single(self, img_tensor, tgt_w, tgt_h, anchor,
                         scale_method, fill_method,
-                        padding_color, custom_color):
+                        padding_fill, custom_color, noise_seed):
         pil = self._tensor_to_pil(img_tensor)
         src_w, src_h = pil.size
 
@@ -101,14 +102,22 @@ class ResizeToCanvasSize:
         # fill_method == "crop"
         return self._crop_fill(
             scaled, sc_w, sc_h, tgt_w, tgt_h,
-            anchor, padding_color, custom_color,
+            anchor, padding_fill, custom_color, noise_seed,
         )
 
     def _crop_fill(self, scaled, sc_w, sc_h, tgt_w, tgt_h,
-                   anchor, padding_color, custom_color):
+                   anchor, padding_fill, custom_color, noise_seed):
         paste_x, paste_y = self._anchor_offset(anchor, sc_w, sc_h, tgt_w, tgt_h)
-        pad_rgba = self._parse_color(padding_color, custom_color)
-        canvas   = Image.new("RGBA", (tgt_w, tgt_h), pad_rgba)
+
+        if padding_fill == "noise":
+            rng = np.random.default_rng(noise_seed)
+            noise_arr = rng.integers(0, 256, (tgt_h, tgt_w, 4), dtype=np.uint8)
+            noise_arr[:, :, 3] = 255
+            canvas = Image.fromarray(noise_arr, "RGBA")
+        else:
+            pad_rgba = self._parse_color(padding_fill, custom_color)
+            canvas   = Image.new("RGBA", (tgt_w, tgt_h), pad_rgba)
+
         pad_mask = np.ones((tgt_h, tgt_w), dtype=np.float32)  # 1 = padding
 
         # Overlap region between scaled image and canvas
@@ -155,7 +164,7 @@ class ResizeToCanvasSize:
         return x, y
 
     @staticmethod
-    def _parse_color(padding_color, custom_color):
+    def _parse_color(padding_fill, custom_color):
         """Return (R, G, B, A) 0-255."""
         presets = {
             "black":       (0,   0,   0,   255),
@@ -163,8 +172,8 @@ class ResizeToCanvasSize:
             "gray_50":     (128, 128, 128, 255),
             "transparent": (0,   0,   0,   0),
         }
-        if padding_color in presets:
-            return presets[padding_color]
+        if padding_fill in presets:
+            return presets[padding_fill]
 
         # custom hex (#RRGGBB or #RRGGBBAA)
         h = custom_color.lstrip("#")

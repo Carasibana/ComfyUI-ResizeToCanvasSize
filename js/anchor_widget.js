@@ -81,6 +81,43 @@ function buildAnchorGrid(getVal, setVal) {
     return { wrapper, refresh };
 }
 
+function buildColorPicker(getVal, setVal) {
+    const wrapper = document.createElement("div");
+    wrapper.style.cssText = "display:flex;align-items:center;gap:8px;padding:4px 12px;width:100%;box-sizing:border-box;height:32px;";
+
+    const label = document.createElement("span");
+    label.textContent = "Custom color";
+    label.style.cssText = "font-size:12px;color:#ccc;flex:1;";
+
+    const input = document.createElement("input");
+    input.type = "color";
+    input.value = getVal() || "#000000";
+    input.style.cssText = "width:48px;height:24px;padding:0;border:1px solid #555;border-radius:3px;cursor:pointer;";
+    input.addEventListener("input", () => setVal(input.value));
+
+    wrapper.appendChild(label);
+    wrapper.appendChild(input);
+
+    return { wrapper, input };
+}
+
+// Grow the node to fit computed size but never shrink below current size.
+function growNode(node) {
+    const computed = node.computeSize();
+    node.setSize([
+        Math.max(node.size[0], computed[0]),
+        Math.max(node.size[1], computed[1]),
+    ]);
+}
+
+// Show or hide a standard (non-DOM) widget.
+function setWidgetVisible(w, visible) {
+    if (!w) return;
+    w.hidden = !visible;
+    w.computeSize = visible ? undefined : () => [0, -4];
+    if (w.inputEl) w.inputEl.style.display = visible ? "" : "none";
+}
+
 app.registerExtension({
     name: "ResizeToCanvasSize.AnchorWidget",
 
@@ -94,55 +131,91 @@ app.registerExtension({
 
             const node = this;
 
-            // Remove the anchor COMBO widget — the DOM widget below owns the value entirely
-            const anchorIdx = node.widgets?.findIndex(w => w.name === "anchor") ?? -1;
-            const initVal   = anchorIdx >= 0 ? (node.widgets[anchorIdx].value || "center") : "center";
+            // ── Anchor grid ───────────────────────────────────────────────────
+            const anchorIdx  = node.widgets?.findIndex(w => w.name === "anchor") ?? -1;
+            const initAnchor = anchorIdx >= 0 ? (node.widgets[anchorIdx].value || "center") : "center";
             if (anchorIdx >= 0) node.widgets.splice(anchorIdx, 1);
+            node._anchorValue = initAnchor;
 
-            node._anchorValue = initVal;
-
-            // Build the 9-button grid
-            const { wrapper, refresh } = buildAnchorGrid(
+            const { wrapper: anchorWrapper, refresh: anchorRefresh } = buildAnchorGrid(
                 ()  => node._anchorValue,
                 (v) => { node._anchorValue = v; },
             );
-            node._anchorRefresh = refresh;
+            node._anchorRefresh = anchorRefresh;
 
-            // Add DOM widget. getValue/setValue let ComfyUI serialise/deserialise
-            // automatically — no hidden backing widget, no manual onSerialize needed.
-            const domW = node.addDOMWidget("anchor", "ANCHOR_GRID", wrapper, {
+            const anchorDomW = node.addDOMWidget("anchor", "ANCHOR_GRID", anchorWrapper, {
                 getValue: () => node._anchorValue,
-                setValue: (v) => { node._anchorValue = v; refresh(); },
+                setValue: (v) => { node._anchorValue = v; anchorRefresh(); },
             });
-            domW.computeSize = () => [3 * 36 + 2 * 2, 3 * 36 + 2 * 2 + 30];
+            anchorDomW.computeSize = () => [3 * 36 + 4, 3 * 36 + 4 + 30];
 
-            // Slot the DOM widget into the position the COMBO occupied so Python's
-            // widgets_values index mapping stays correct.
-            const domIdx = node.widgets.indexOf(domW);
-            const target = anchorIdx >= 0 ? anchorIdx : Math.min(2, node.widgets.length - 1);
-            if (domIdx !== target) {
-                node.widgets.splice(domIdx, 1);
-                node.widgets.splice(target, 0, domW);
+            // Slot into the position the COMBO occupied.
+            const anchorDomIdx = node.widgets.indexOf(anchorDomW);
+            const anchorTarget = anchorIdx >= 0 ? anchorIdx : Math.min(2, node.widgets.length - 1);
+            if (anchorDomIdx !== anchorTarget) {
+                node.widgets.splice(anchorDomIdx, 1);
+                node.widgets.splice(anchorTarget, 0, anchorDomW);
             }
 
-            // Show / hide custom_color field
-            const paddingColorW = node.widgets?.find(w => w.name === "padding_color");
-            const customColorW  = node.widgets?.find(w => w.name === "custom_color");
-            if (paddingColorW && customColorW) {
-                const sync = () => {
-                    const show = paddingColorW.value === "custom";
-                    customColorW.hidden = !show;
-                    customColorW.computeSize = show ? undefined : () => [0, -4];
-                    if (customColorW.inputEl) customColorW.inputEl.style.display = show ? "" : "none";
-                    node.setSize(node.computeSize());
-                    node.setDirtyCanvas(true);
-                };
-                const origCb = paddingColorW.callback;
-                paddingColorW.callback = (...args) => { origCb?.apply(paddingColorW, args); sync(); };
-                sync();
+            // ── Color picker (replaces custom_color STRING widget) ────────────
+            // Find AFTER anchor manipulation so indices are current.
+            const customColorIdx  = node.widgets?.findIndex(w => w.name === "custom_color") ?? -1;
+            const initColor       = customColorIdx >= 0 ? (node.widgets[customColorIdx].value || "#000000") : "#000000";
+            if (customColorIdx >= 0) node.widgets.splice(customColorIdx, 1);
+            node._customColorValue = initColor;
+
+            const { wrapper: colorWrapper, input: colorInput } = buildColorPicker(
+                ()  => node._customColorValue,
+                (v) => { node._customColorValue = v; },
+            );
+
+            const colorDomW = node.addDOMWidget("custom_color", "COLOR_PICKER", colorWrapper, {
+                getValue: () => node._customColorValue,
+                setValue: (v) => { node._customColorValue = v; colorInput.value = v; },
+            });
+            colorDomW.computeSize = () => [200, 36];
+
+            // Slot into the position the STRING widget occupied.
+            const colorDomEndIdx = node.widgets.indexOf(colorDomW);
+            const colorTarget    = customColorIdx >= 0 ? customColorIdx : colorDomEndIdx;
+            if (colorDomEndIdx !== colorTarget) {
+                node.widgets.splice(colorDomEndIdx, 1);
+                node.widgets.splice(colorTarget, 0, colorDomW);
             }
 
-            node.setSize(node.computeSize());
+            // ── Show / hide logic ─────────────────────────────────────────────
+            const paddingFillW = node.widgets?.find(w => w.name === "padding_fill");
+            const noiseSeedW   = node.widgets?.find(w => w.name === "noise_seed");
+
+            // ComfyUI may auto-add a control widget immediately after noise_seed.
+            const noiseSeedIdx = node.widgets?.findIndex(w => w.name === "noise_seed") ?? -1;
+            const maybeCtrlW   = noiseSeedIdx >= 0 ? node.widgets[noiseSeedIdx + 1] : null;
+            const noiseCtrlW   = (maybeCtrlW && maybeCtrlW.name !== "custom_color") ? maybeCtrlW : null;
+
+            const sync = () => {
+                const val       = paddingFillW?.value;
+                const showColor = val === "custom";
+                const showNoise = val === "noise";
+
+                // Color picker DOM widget
+                colorWrapper.style.display = showColor ? "" : "none";
+                colorDomW.computeSize = showColor ? () => [200, 36] : () => [0, -4];
+
+                // noise_seed (and optional auto-added control widget)
+                setWidgetVisible(noiseSeedW, showNoise);
+                if (noiseCtrlW) setWidgetVisible(noiseCtrlW, showNoise);
+
+                growNode(node);
+                node.setDirtyCanvas(true);
+            };
+
+            if (paddingFillW) {
+                const origCb = paddingFillW.callback;
+                paddingFillW.callback = (...args) => { origCb?.apply(paddingFillW, args); sync(); };
+            }
+
+            sync();
+            growNode(node);
         };
     },
 });
