@@ -49,6 +49,8 @@ A ComfyUI custom node pack that resizes images to an exact target canvas size wi
 | `IMAGE` | IMAGE (RGBA) | The resized image |
 | `padding_mask` | MASK | `1.0` where padding was added, `0.0` where original image pixels are. All zeros when no padding occurred. |
 
+![Basic resize workflow — noise-padded portrait crop result](screenshots/workflow_basic_resize_result.png)
+
 ---
 
 ## Resize To Canvas Size (COI)
@@ -161,8 +163,10 @@ After scaling, the image may be larger than the canvas (overflow → crop) or sm
 
 **Face-centred portrait crop (COI node):**
 - Feed a face detection mask (e.g. `UltralyticsDetectorProvider` → `BboxDetectorSEGS` → `SAMDetectorCombined`) into the `mask` input
-- Set `anchor_mode`: `mask_weighted_centre` · grid: `(3,3)` (canvas centre)
+- Set `anchor_mode`: `mask_bbox_centre` · grid: `(3,3)` (canvas centre)
 - Set `scale_method`: `Fit to Canvas width` — the detected face will be centred on the canvas regardless of where it appears in the source image
+
+![Face-centred portrait crop workflow using COI node with face detection](screenshots/workflow_coi_face_detection.png)
 
 ---
 
