@@ -3,6 +3,12 @@ import numpy as np
 from PIL import Image
 
 
+ANCHOR_OPTIONS = [
+    "top_left",    "top_center",    "top_right",
+    "middle_left", "center",        "middle_right",
+    "bottom_left", "bottom_center", "bottom_right",
+]
+
 ANCHOR_MAP = {
     "top_left":      ("left",   "top"),
     "top_center":    ("center", "top"),
@@ -25,7 +31,7 @@ class ResizeToCanvasSize:
                 "image":              ("IMAGE",),
                 "width":              ("INT",  {"default": 512, "min": 1, "max": 8192, "step": 1}),
                 "height":             ("INT",  {"default": 512, "min": 1, "max": 8192, "step": 1}),
-                "anchor":             ("ANCHOR_GRID", {"default": "center"}),
+                "anchor":             (ANCHOR_OPTIONS, {"default": "center"}),
                 "scale_method":       (["none", "shortest_edge", "longest_edge", "height", "width"],
                                        {"default": "shortest_edge"}),
                 "fill_method":        (["crop", "stretch"], {"default": "crop"}),
