@@ -3,7 +3,9 @@
 A ComfyUI custom node pack that resizes images to an exact target canvas size with full control over scaling, cropping, and placement.
 
 ---
-
+![Version](https://img.shields.io/badge/version-1.0.1-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+---
 ## Nodes
 
 | Node | Description |

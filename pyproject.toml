@@ -1,6 +1,6 @@
 [project]
 name = "comfyui-resizetocanvassize"
-version = "1.0.0"
+version = "1.0.1"
 description = "A ComfyUI custom node pack that resizes images to an exact target canvas size with full control over scaling, cropping, and placement."
 readme = "README.md"
 license = {text = "MIT"}
