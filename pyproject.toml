@@ -38,3 +38,4 @@ include = ["js*"]
 [tool.comfy]
 PublisherId = "carasibana"
 DisplayName = "ComfyUI-ResizeToCanvasSize"
+Icon   = "https://raw.githubusercontent.com/Carasibana/ComfyUI-ResizeToCanvasSize/main/assets/icon-resizetocanvas.svg"

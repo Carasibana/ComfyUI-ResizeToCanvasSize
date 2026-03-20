@@ -1,0 +1,44 @@
+<svg viewBox="0 0 400 400" width="400" height="400" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="400" rx="72" fill="#12121e"/>
+
+  <!-- Outer canvas boundary (dashed) -->
+  <rect x="44" y="44" width="312" height="312" rx="12"
+        fill="none" stroke="#2dd4bf" stroke-width="2.5" stroke-dasharray="13,8"/>
+
+  <!-- ── 3×3 grid cells (80×80, gap 8, starting 68,68) ── -->
+
+  <!-- [0,0] top-left — ACTIVE anchor (filled circle) -->
+  <rect x="68" y="68" width="80" height="80" rx="10" fill="#1e3830"/>
+  <rect x="68" y="68" width="80" height="80" rx="10" fill="none" stroke="#2dd4bf" stroke-width="2.5"/>
+  <circle cx="108" cy="108" r="13" fill="#2dd4bf"/>
+
+  <!-- [0,1] top-center — → pointing right (away from anchor) -->
+  <rect x="160" y="68" width="80" height="80" rx="10" fill="#151e1c"/>
+  <line x1="184" y1="108" x2="216" y2="108" stroke="#2dd4bf" stroke-width="2.5" stroke-linecap="round"/>
+  <polyline points="206,98 217,108 206,118" fill="none" stroke="#2dd4bf" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- [0,2] top-right — empty -->
+  <rect x="252" y="68" width="80" height="80" rx="10" fill="#151e1c"/>
+
+  <!-- [1,0] mid-left — ↓ pointing down (away from anchor) -->
+  <rect x="68" y="160" width="80" height="80" rx="10" fill="#151e1c"/>
+  <line x1="108" y1="184" x2="108" y2="216" stroke="#2dd4bf" stroke-width="2.5" stroke-linecap="round"/>
+  <polyline points="98,206 108,217 118,206" fill="none" stroke="#2dd4bf" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- [1,1] center — ↘ pointing diagonal (away from anchor) -->
+  <rect x="160" y="160" width="80" height="80" rx="10" fill="#151e1c"/>
+  <line x1="184" y1="184" x2="214" y2="214" stroke="#2dd4bf" stroke-width="2.5" stroke-linecap="round"/>
+  <polyline points="200,214 214,214 214,200" fill="none" stroke="#2dd4bf" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- [1,2] mid-right — empty -->
+  <rect x="252" y="160" width="80" height="80" rx="10" fill="#151e1c"/>
+
+  <!-- [2,0] bottom-left — empty -->
+  <rect x="68" y="252" width="80" height="80" rx="10" fill="#151e1c"/>
+
+  <!-- [2,1] bottom-center — empty -->
+  <rect x="160" y="252" width="80" height="80" rx="10" fill="#151e1c"/>
+
+  <!-- [2,2] bottom-right — empty -->
+  <rect x="252" y="252" width="80" height="80" rx="10" fill="#151e1c"/>
+</svg>
