@@ -1,0 +1,40 @@
+[project]
+name = "comfyui-resizetocanvassize"
+version = "1.0.0"
+description = "A ComfyUI custom node pack that resizes images to an exact target canvas size with full control over scaling, cropping, and placement."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.8"
+keywords = ["comfyui", "stable-diffusion", "image", "resize", "canvas", "crop", "ai", "image-generation"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.urls]
+Homepage = "https://github.com/Carasibana/ComfyUI-ResizeToCanvasSize"
+Repository = "https://github.com/Carasibana/ComfyUI-ResizeToCanvasSize"
+Issues = "https://github.com/Carasibana/ComfyUI-ResizeToCanvasSize/issues"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["js*"]
+
+[tool.comfy]
+PublisherId = "carasibana"
+DisplayName = "ComfyUI-ResizeToCanvasSize"
