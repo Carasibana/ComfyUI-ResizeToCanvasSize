@@ -181,6 +181,8 @@ With multiple subjects, `mask_weighted_centre` finds the centre of gravity acros
 
 ## Load Image To Canvas
 
+![Load Image To Canvas — demo](screenshots/demo_load_image_to_canvas.gif)
+
 | Locked aspect ratio | Unlocked aspect ratio |
 |---|---|
 | ![Load Image To Canvas — locked aspect ratio mode](screenshots/node_load_image_to_canvas_locked.png) | ![Load Image To Canvas — unlocked aspect ratio mode](screenshots/node_load_image_to_canvas_unlocked.png) |
