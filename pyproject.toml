@@ -1,6 +1,6 @@
 [project]
 name = "comfyui-resizetocanvassize"
-version = "1.0.1"
+version = "1.1.0"
 description = "A ComfyUI custom node pack that resizes images to an exact target canvas size with full control over scaling, cropping, and placement."
 readme = "README.md"
 license = {text = "MIT"}
@@ -38,4 +38,4 @@ include = ["js*"]
 [tool.comfy]
 PublisherId = "carasibana"
 DisplayName = "ComfyUI-ResizeToCanvasSize"
-Icon   = "https://raw.githubusercontent.com/Carasibana/ComfyUI-ResizeToCanvasSize/main/assets/icon-resizetocanvas.svg"
+Icon = "https://raw.githubusercontent.com/Carasibana/ComfyUI-ResizeToCanvasSize/main/assets/icon-resizetocanvas.svg"

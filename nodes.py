@@ -1,6 +1,8 @@
+import os
 import torch
 import numpy as np
 from PIL import Image
+import folder_paths
 
 
 ANCHOR_OPTIONS = [
@@ -411,11 +413,220 @@ class ResizeToCanvasSizeMask(ResizeToCanvasSize):
         )
 
 
+class LoadImageToCanvas:
+    """
+    Load an image from disk and composite it onto a user-defined canvas with
+    configurable scaling, flip, zoom, offset, and padding fill.
+
+    Outputs the composited canvas image, a context-aware mask, and the raw
+    unmodified loaded image.
+
+    Mask coordinate space rule:
+      - When padding is present (image does not fully cover canvas):
+          mask is canvas-space, white = image region, black = padding
+      - When no padding (image fully covers or crops into canvas):
+          mask is source-image-space, white = which source pixels were sampled
+
+    Aspect ratio lock rule (when locking zoom_x != zoom_y):
+      - Stores locked_ratio = zoom_x / zoom_y at lock time.
+      - Unified dial represents zoom_x; zoom_y = zoom_x / locked_ratio.
+      - The ratio the user established while unlocked is always preserved.
+      - Python enforces this: if lock_aspect_ratio and locked_ratio != 0, set zoom_y accordingly.
+    """
+
+    @classmethod
+    def INPUT_TYPES(cls):
+        input_dir = folder_paths.get_input_directory()
+        files = sorted([
+            f for f in os.listdir(input_dir)
+            if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif'))
+            and os.path.isfile(os.path.join(input_dir, f))
+        ]) or [""]
+        return {
+            "required": {
+                "image":             (files, {"image_upload": True}),
+                "canvas_width":      ("INT",    {"default": 512,  "min": 1,    "max": 8192, "step": 1}),
+                "canvas_height":     ("INT",    {"default": 512,  "min": 1,    "max": 8192, "step": 1}),
+                "padding_fill":      (["black", "white", "gray_50", "transparent", "custom", "noise"],
+                                      {"default": "black"}),
+                "custom_color_hex":  ("STRING", {"default": "#000000"}),
+                "noise_seed":        ("INT",    {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
+                "lock_aspect_ratio": ("BOOLEAN", {"default": True}),
+                # locked_ratio stores zoom_x / zoom_y when locked so the JS can persist it.
+                # Python reads it to recompute zoom_y from zoom_x when locked.
+                "locked_ratio":      ("FLOAT",  {"default": 1.0, "min": 0.0001, "max": 10000.0, "step": 0.0001}),
+                "zoom_x":            ("FLOAT",  {"default": 1.0, "min": 0.01, "max": 100.0, "step": 0.01}),
+                "zoom_y":            ("FLOAT",  {"default": 1.0, "min": 0.01, "max": 100.0, "step": 0.01}),
+                "offset_x":          ("FLOAT",  {"default": 0.5, "min": -1.0, "max": 2.0,   "step": 0.001}),
+                "offset_y":          ("FLOAT",  {"default": 0.5, "min": -1.0, "max": 2.0,   "step": 0.001}),
+                "flip_horizontal":   ("BOOLEAN", {"default": False}),
+                "flip_vertical":     ("BOOLEAN", {"default": False}),
+                "invert_mask":       ("BOOLEAN", {"default": False}),
+            },
+            "optional": {
+                "custom_color_hex_input": ("STRING", {"forceInput": True}),
+            },
+        }
+
+    RETURN_TYPES  = ("IMAGE", "MASK", "IMAGE")
+    RETURN_NAMES  = ("IMAGE", "MASK", "ORIGINAL IMAGE")
+    FUNCTION      = "load_and_place"
+
+    @classmethod
+    def IS_CHANGED(cls, image, **kwargs):
+        image_path = folder_paths.get_annotated_filepath(image)
+        return f"{image}_{os.path.getmtime(image_path)}"
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, image, **kwargs):
+        if not folder_paths.exists_annotated_filepath(image):
+            return f"Invalid image file: {image}"
+        return True
+    CATEGORY      = "image/transform"
+    OUTPUT_NODE   = False
+
+    def load_and_place(self, image, canvas_width, canvas_height,
+                       padding_fill, custom_color_hex, noise_seed,
+                       lock_aspect_ratio, locked_ratio, zoom_x, zoom_y,
+                       offset_x, offset_y, flip_horizontal, flip_vertical,
+                       invert_mask, custom_color_hex_input=None):
+
+        if custom_color_hex_input is not None:
+            resolved_color = ResizeToCanvasSize._sanitize_hex(custom_color_hex_input, custom_color_hex)
+        else:
+            resolved_color = custom_color_hex
+
+        # When locked, derive zoom_y from zoom_x using the stored ratio.
+        # locked_ratio = zoom_x_at_lock_time / zoom_y_at_lock_time, so zoom_y = zoom_x / locked_ratio.
+        if lock_aspect_ratio and locked_ratio > 0:
+            zoom_y = zoom_x / locked_ratio
+
+        img_path   = folder_paths.get_annotated_filepath(image)
+        src_pil    = self._apply_exif_orientation(Image.open(img_path)).convert("RGBA")
+        src_w, src_h = src_pil.size
+
+        original_tensor = ResizeToCanvasSize._pil_to_tensor(src_pil).unsqueeze(0)
+
+        composited, mask = self._place(
+            src_pil, src_w, src_h, canvas_width, canvas_height,
+            flip_horizontal, flip_vertical,
+            zoom_x, zoom_y, offset_x, offset_y,
+            padding_fill, resolved_color, noise_seed,
+        )
+
+        if invert_mask:
+            mask = 1.0 - mask
+
+        return (
+            composited.unsqueeze(0),
+            mask.unsqueeze(0),
+            original_tensor,
+        )
+
+    # ------------------------------------------------------------------
+    # Helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _apply_exif_orientation(img):
+        """Rotate image to match EXIF orientation tag (handles phone/camera images)."""
+        try:
+            from PIL import ExifTags
+            exif = img._getexif()
+            if exif is not None:
+                for tag, value in exif.items():
+                    if ExifTags.TAGS.get(tag) == 'Orientation':
+                        if value == 3:
+                            img = img.rotate(180, expand=True)
+                        elif value == 6:
+                            img = img.rotate(270, expand=True)
+                        elif value == 8:
+                            img = img.rotate(90, expand=True)
+        except (AttributeError, Exception):
+            pass
+        return img
+
+    # ------------------------------------------------------------------
+    # Core placement logic
+    # ------------------------------------------------------------------
+
+    def _place(self, src_pil, src_w, src_h, canvas_w, canvas_h,
+               flip_h, flip_v, zoom_x, zoom_y,
+               offset_x, offset_y, padding_fill, custom_color_hex, noise_seed):
+
+        # Step 2: flip
+        img = src_pil.copy()
+        if flip_h:
+            img = img.transpose(Image.FLIP_LEFT_RIGHT)
+        if flip_v:
+            img = img.transpose(Image.FLIP_TOP_BOTTOM)
+
+        # Step 3: zoom (zoom_x/zoom_y scale the source image directly)
+        zoomed_w = max(1, round(src_w * zoom_x))
+        zoomed_h = max(1, round(src_h * zoom_y))
+        zoomed = img.resize((zoomed_w, zoomed_h), Image.LANCZOS) if (zoomed_w, zoomed_h) != (src_w, src_h) else img
+
+        # Step 4: paste position — image centre at (offset * canvas)
+        paste_x = round(offset_x * canvas_w - zoomed_w / 2)
+        paste_y = round(offset_y * canvas_h - zoomed_h / 2)
+
+        # Step 5: composite onto canvas
+        if padding_fill == "noise":
+            rng = np.random.default_rng(noise_seed)
+            noise_arr = rng.integers(0, 256, (canvas_h, canvas_w, 4), dtype=np.uint8)
+            noise_arr[:, :, 3] = 255
+            canvas = Image.fromarray(noise_arr, "RGBA")
+        else:
+            pad_rgba = ResizeToCanvasSize._parse_color(padding_fill, custom_color_hex)
+            canvas   = Image.new("RGBA", (canvas_w, canvas_h), pad_rgba)
+
+        src_x1 = max(0, -paste_x)
+        src_y1 = max(0, -paste_y)
+        src_x2 = min(zoomed_w, canvas_w - paste_x)
+        src_y2 = min(zoomed_h, canvas_h - paste_y)
+
+        dst_x1 = max(0, paste_x)
+        dst_y1 = max(0, paste_y)
+        dst_x2 = dst_x1 + (src_x2 - src_x1)
+        dst_y2 = dst_y1 + (src_y2 - src_y1)
+
+        if src_x2 > src_x1 and src_y2 > src_y1:
+            canvas.paste(zoomed.crop((src_x1, src_y1, src_x2, src_y2)), (dst_x1, dst_y1))
+
+        # Step 6: mask
+        full_coverage = (dst_x1 == 0 and dst_y1 == 0 and
+                         dst_x2 == canvas_w and dst_y2 == canvas_h)
+
+        if not full_coverage:
+            # Canvas space: white = where image sits, black = padding
+            mask_np = np.zeros((canvas_h, canvas_w), dtype=np.float32)
+            if src_x2 > src_x1 and src_y2 > src_y1:
+                mask_np[dst_y1:dst_y2, dst_x1:dst_x2] = 1.0
+        else:
+            # Source image space: white = which source pixels were sampled.
+            # Flip does not affect the source-space bounding box — the extent is unchanged.
+            mask_np = np.zeros((src_h, src_w), dtype=np.float32)
+            # Actual zoom factors (accounting for rounding)
+            zx = zoomed_w / src_w if src_w > 0 else zoom_x
+            zy = zoomed_h / src_h if src_h > 0 else zoom_y
+            # Map canvas region back through zoom to source coordinates
+            mx0 = max(0,     int((-paste_x) / zx))
+            mx1 = min(src_w, int(np.ceil((canvas_w - paste_x) / zx)))
+            my0 = max(0,     int((-paste_y) / zy))
+            my1 = min(src_h, int(np.ceil((canvas_h - paste_y) / zy)))
+            if my1 > my0 and mx1 > mx0:
+                mask_np[my0:my1, mx0:mx1] = 1.0
+
+        return ResizeToCanvasSize._pil_to_tensor(canvas), torch.from_numpy(mask_np)
+
+
 NODE_CLASS_MAPPINGS        = {
     "ResizeToCanvasSize":     ResizeToCanvasSize,
     "ResizeToCanvasSizeMask": ResizeToCanvasSizeMask,
+    "LoadImageToCanvas":      LoadImageToCanvas,
 }
 NODE_DISPLAY_NAME_MAPPINGS = {
     "ResizeToCanvasSize":     "Resize To Canvas Size",
     "ResizeToCanvasSizeMask": "Resize To Canvas Size (COI)",
+    "LoadImageToCanvas":      "Load Image To Canvas",
 }

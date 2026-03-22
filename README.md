@@ -3,7 +3,7 @@
 A ComfyUI custom node pack that resizes images to an exact target canvas size with full control over scaling, cropping, and placement.
 
 ---
-![Version](https://img.shields.io/badge/version-1.0.1-blue)
+![Version](https://img.shields.io/badge/version-1.1.0-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ---
 ## Nodes
@@ -12,6 +12,7 @@ A ComfyUI custom node pack that resizes images to an exact target canvas size wi
 |---|---|
 | **Resize To Canvas Size** | Resize an image to a canvas using a 9-point anchor grid (flush edge/corner placement) |
 | **Resize To Canvas Size (COI)** | Resize with mask-driven Centre of Interest placement — a 7×7 target grid controls where the detected subject lands on the canvas |
+| **Load Image To Canvas** | Load an image from disk and interactively composite it onto a canvas — live preview, rotary zoom dials, drag-to-reposition, flip controls, and a context-aware mask |
 
 ---
 
@@ -173,6 +174,82 @@ After scaling, the image may be larger than the canvas (overflow → crop) or sm
 With multiple subjects, `mask_weighted_centre` finds the centre of gravity across all detected regions, automatically framing everyone together:
 
 ![Two-subject crop — both faces detected, mask_weighted_centre centres between them](screenshots/workflow_coi_two_faces_weighted_centre.png)
+
+---
+
+---
+
+## Load Image To Canvas
+
+| Locked aspect ratio | Unlocked aspect ratio |
+|---|---|
+| ![Load Image To Canvas — locked aspect ratio mode](screenshots/node_load_image_to_canvas_locked.png) | ![Load Image To Canvas — unlocked aspect ratio mode](screenshots/node_load_image_to_canvas_unlocked.png) |
+
+Loads an image from disk and composites it onto a user-defined canvas with full interactive control over scaling, zoom, positioning, and padding. Designed as a manual, intentional starting node — user interaction is the point.
+
+![Load Image To Canvas — full workflow](screenshots/workflow_load_image_to_canvas.png)
+
+### Features
+
+- **Live preview** — canvas-aspect-ratio preview embedded in the node, updates reactively as every parameter changes. A resolution label (`W × H`) sits just below the preview and stays accurate when canvas dimensions change
+- **Drag to reposition** — click and drag anywhere on the preview to move the image; the `offset_x` / `offset_y` values update live
+- **Scroll to zoom** — scroll the mouse wheel over the preview or the dials; velocity-sensitive steps (rapid scroll = coarser, slow = finer). Shift+scroll for large jumps
+- **Shift+drag crop box** — draw an aspect-ratio-locked region on the preview; releasing snaps zoom and offset so that region fills the canvas exactly
+- **Rotary zoom dials** — canvas-based knobs for zoom. Drag diagonally to change value; click the numeric readout to type an exact value
+- **Aspect ratio lock** (`🔒 Aspect Ratio Locked / 🔓 Aspect Ratio Unlocked`) — single unified dial when locked; independent **Width** and **Height** dials when unlocked. Locking preserves the x:y ratio you set while unlocked
+- **Fit Width / Fit Height buttons** — one-shot snap buttons flanking the dial(s); scale the image to fill the chosen canvas axis and centre the offset on that axis
+- **= (Equalize) button** — appears between the Width and Height dials in unlocked mode; copies the Width zoom value to Height, restoring the image's natural (undistorted) aspect ratio
+- **⇄ Swap W↔H button** — swaps `canvas_width` and `canvas_height` with each other; useful for quickly toggling between portrait and landscape canvas orientations
+- **Flip controls** — horizontal and vertical flip
+- **6 padding fill options** — black, white, 50% gray, transparent, custom colour, or noise (same options as the rest of the pack)
+- **Context-aware mask output** — canvas-space (white = image, black = padding) when padding is present; source-image-space (white = sampled pixels) when fully covered
+- **Original image passthrough** — `ORIGINAL IMAGE` output carries the raw unmodified loaded image with no transforms applied
+
+### Inputs
+
+| Input | Type | Description |
+|---|---|---|
+| `image` | File picker | Source image loaded from ComfyUI's `input/` folder |
+| `canvas_width` | INT | Target canvas width in pixels |
+| `canvas_height` | INT | Target canvas height in pixels |
+| `padding_fill` | Dropdown | How to fill any uncovered canvas area |
+| `custom_color_hex` | Colour picker | Only shown when `padding_fill` is `custom` |
+| `custom_color_hex_input` | STRING (optional connector) | Overrides the picker when connected |
+| `noise_seed` | INT | Only shown when `padding_fill` is `noise` |
+| `lock_aspect_ratio` | BOOLEAN | Controlled via the lock toggle button in the Zoom section |
+| `zoom_x` | FLOAT | Horizontal zoom multiplier (1.0 = 100%) — set via dial or readout |
+| `zoom_y` | FLOAT | Vertical zoom multiplier — independent when unlocked |
+| `offset_x` | FLOAT | Horizontal position (0.5 = centred) — set via drag or manual input |
+| `offset_y` | FLOAT | Vertical position (0.5 = centred) |
+| `flip_horizontal` | BOOLEAN | Mirror left/right |
+| `flip_vertical` | BOOLEAN | Mirror top/bottom |
+| `invert_mask` | BOOLEAN | Flip white/black on the mask output |
+
+### Outputs
+
+| Output | Type | Description |
+|---|---|---|
+| `IMAGE` | IMAGE (RGBA) | Composited canvas result |
+| `MASK` | MASK | Context-aware mask — canvas-space when padding present; source-image-space when no padding |
+| `ORIGINAL IMAGE` | IMAGE (RGBA) | Raw unmodified loaded image, no transforms applied |
+
+### Mask detail
+
+| State | Mask space | Mask content |
+|---|---|---|
+| Image has padding | Canvas space (canvas W × H) | White = where image sits, black = padding |
+| No padding (fully covered/cropped) | Source image space (original W × H) | White = which source pixels were sampled |
+
+`invert_mask` flips this in all cases.
+
+### Transform order
+
+1. Load image
+2. Apply `flip_horizontal` / `flip_vertical`
+3. Apply `zoom_x` / `zoom_y`
+4. Apply `offset_x` / `offset_y` (image centre placed at `offset × canvas`)
+5. Composite onto canvas with `padding_fill`
+6. Compute mask
 
 ---
 
